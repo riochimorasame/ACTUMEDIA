@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="fr" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <link rel="apple-touch-icon" href="assets/favicon.png" />
+  <title>Capture Média — Actu jeune et africaine</title>
+  <meta name="description" content="Capture Média : média d'infos pour une génération consciente. Enquêtes, reportages et actualité jeune et africaine depuis le Togo." />
+  <meta name="theme-color" content="#020617" />
+
+  <!-- Aperçu lors du partage (WhatsApp, Facebook…) -->
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Capture Média — Actu jeune et africaine" />
+  <meta property="og:description" content="Média d'infos pour une génération consciente 🔆" />
+  <meta property="og:image" content="assets/og-image.png" />
+  <link rel="icon" type="image/png" href="assets/favicon.png" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { brand: { DEFAULT: '#FFE000', dark: '#E6C900' } },
+          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+
+  <style>
+    html { -webkit-text-size-adjust: 100%; }
+    body { font-family: 'Inter', sans-serif; overflow-x: hidden; -webkit-tap-highlight-color: transparent; }
+    h1, h2, h3 { overflow-wrap: anywhere; text-wrap: balance; }
+    /* Encoche iPhone / barre système */
+    header#top { padding-top: env(safe-area-inset-top, 0px); }
+    footer { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .wa-float { bottom: calc(1.25rem + env(safe-area-inset-bottom, 0px)); right: calc(1.25rem + env(safe-area-inset-right, 0px)); }
+    /* Filtres : une seule ligne défilante sur téléphone */
+    .filters { display: flex; gap: .5rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;
+               margin-inline: -1rem; padding-inline: 1rem; scroll-snap-type: x proximity; }
+    .filters::-webkit-scrollbar { display: none; }
+    .filters > button { flex: none; scroll-snap-align: start; min-height: 44px; white-space: nowrap; }
+    @media (min-width: 768px) { .filters { flex-wrap: wrap; overflow: visible; margin: 0; padding: 0; } }
+    /* Écrans tactiles : le bouton lecture est toujours visible */
+    @media (hover: none) {
+      .card .play-overlay { opacity: 1 !important; background: rgba(0,0,0,.15) !important; }
+      .card:hover { transform: none !important; }
+    }
+    .card:active { transform: scale(.985); }
+    /* Lecteur plein écran en paysage */
+    #modalFrame { max-height: calc(100dvh - 5.5rem); }
+    @media (orientation: landscape) and (max-height: 500px) {
+      #videoModal { padding: .5rem; }
+      #modalFrame { max-height: 100dvh; height: calc(100dvh - 1rem); width: auto; aspect-ratio: 16/9; }
+    }
+    @keyframes pulse-ring {
+      0%   { box-shadow: 0 0 0 0 rgba(37, 211, 102, .6); }
+      70%  { box-shadow: 0 0 0 18px rgba(37, 211, 102, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(37, 211, 102, 0); }
+    }
+    .wa-pulse { animation: pulse-ring 2s infinite; }
+    .grid-bg {
+      background-image: radial-gradient(rgba(255,224,0,.07) 1px, transparent 1px);
+      background-size: 22px 22px;
+    }
+    .reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s ease, transform .7s ease; }
+    .reveal-in { opacity: 1; transform: none; }
+    .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+    .line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1; transform: none; transition: none; }
+      .wa-pulse { animation: none; }
+    }
+  </style>
+</head>
+
+<body class="bg-slate-950 text-slate-200 antialiased">
+
+  <!-- ============ HEADER ============ -->
+  <header id="top" class="fixed inset-x-0 top-0 z-50 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-lg">
+    <div class="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6 sm:py-3 lg:px-8">
+
+      <a href="#accueil" class="flex items-center gap-3">
+        <img src="logo.png" alt="Logo Capture Média" width="44" height="44"
+             class="h-10 w-10 sm:h-11 sm:w-11 rounded-xl object-cover ring-1 ring-slate-700"
+             onerror="this.style.display='none'; this.nextElementSibling.classList.remove('hidden'); this.nextElementSibling.classList.add('flex');" />
+        <div class="hidden h-11 w-11 items-center justify-center rounded-xl bg-brand text-slate-950 ring-1 ring-slate-700">
+          <i class="fa-solid fa-camera text-lg"></i>
+        </div>
+        <div class="leading-tight">
+          <p class="text-base font-extrabold tracking-tight text-white sm:text-lg">Capture <span class="text-brand">Média</span></p>
+          <p class="hidden text-[11px] text-slate-400 sm:block">Média d'infos pour une génération consciente 🔆</p>
+        </div>
+      </a>
+
+      <nav class="hidden items-center gap-8 text-sm font-medium md:flex">
+        <a href="#accueil" class="text-slate-300 transition hover:text-brand">Accueil</a>
+        <a href="#publications" data-filter-link="enquetes" class="text-slate-300 transition hover:text-brand">Enquêtes</a>
+        <a href="#publications" data-filter-link="societe" class="text-slate-300 transition hover:text-brand">Société</a>
+        <a href="#apropos" class="text-slate-300 transition hover:text-brand">À Propos</a>
+      </nav>
+
+      <div class="flex items-center gap-2">
+        <a href="https://www.whatsapp.com/channel/0029VbCO0avGzzKJohCfbw0F" target="_blank" rel="noopener noreferrer"
+           class="hidden items-center gap-2 rounded-full bg-green-500 px-5 py-2.5 text-sm font-bold text-white shadow-lg shadow-green-500/20 transition hover:bg-green-400 sm:inline-flex">
+          <i class="fa-brands fa-whatsapp text-lg"></i> Rejoindre le Canal WhatsApp
+        </a>
+        <button id="menuBtn" aria-label="Ouvrir le menu" aria-expanded="false" aria-controls="mobileMenu"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-slate-700 text-slate-300 md:hidden">
+          <i class="fa-solid fa-bars"></i>
+        </button>
+      </div>
+    </div>
+
+    <div id="mobileMenu" class="hidden border-t border-slate-800 bg-slate-950 md:hidden">
+      <div class="flex max-h-[calc(100dvh-4rem)] flex-col gap-1 overflow-y-auto px-4 py-4 text-base font-medium">
+        <a href="#accueil" class="rounded-lg px-3 py-3 active:bg-slate-900 hover:bg-slate-900">Accueil</a>
+        <a href="#publications" data-filter-link="enquetes" class="rounded-lg px-3 py-3 active:bg-slate-900 hover:bg-slate-900">Enquêtes</a>
+        <a href="#publications" data-filter-link="societe" class="rounded-lg px-3 py-3 active:bg-slate-900 hover:bg-slate-900">Société</a>
+        <a href="#apropos" class="rounded-lg px-3 py-3 active:bg-slate-900 hover:bg-slate-900">À Propos</a>
+        <a href="https://www.whatsapp.com/channel/0029VbCO0avGzzKJohCfbw0F" target="_blank" rel="noopener noreferrer"
+           class="mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-green-500 px-5 py-3.5 font-bold text-white">
+          <i class="fa-brands fa-whatsapp text-lg"></i> Rejoindre le Canal WhatsApp
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ HERO ============ -->
+    <section id="accueil" class="grid-bg relative overflow-hidden pb-12 pt-24 sm:pb-16 sm:pt-28 lg:pb-24 lg:pt-36">
+      <div class="pointer-events-none absolute -top-32 left-1/2 h-96 w-[48rem] -translate-x-1/2 rounded-full bg-brand/10 blur-3xl"></div>
+
+      <div class="relative mx-auto grid max-w-7xl items-center gap-10 px-4 sm:px-6 lg:grid-cols-5 lg:gap-12 lg:px-8">
+
+        <div class="order-2 lg:order-1 lg:col-span-3">
+          <div class="mb-3 inline-flex items-center gap-2 rounded-full border border-red-500/40 bg-red-500/10 px-3 py-1.5 text-[11px] sm:mb-4 sm:px-4 sm:text-xs font-bold uppercase tracking-wider text-red-400">
+            <span class="relative flex h-2.5 w-2.5">
+              <span class="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75"></span>
+              <span class="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500"></span>
+            </span>
+            À la une • Grand Reportage
+          </div>
+
+          <div class="relative aspect-video w-full overflow-hidden rounded-2xl border border-slate-800 bg-slate-900 shadow-2xl shadow-black/50">
+            <button id="playerPoster" class="group absolute inset-0 flex h-full w-full flex-col items-center justify-center bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 text-center" aria-label="Lire la vidéo à la une">
+              <div class="grid-bg absolute inset-0 opacity-70"></div>
+              <img id="heroThumb" alt="" class="absolute inset-0 hidden h-full w-full object-cover" />
+              <div class="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/20 to-transparent"></div>
+              <span class="relative flex h-16 w-16 items-center justify-center rounded-full bg-red-600 text-2xl sm:h-20 sm:w-20 sm:text-3xl text-white shadow-xl shadow-red-600/40 transition group-hover:scale-110">
+                <i class="fa-solid fa-play ml-1"></i>
+              </span>
+              <span id="heroTitle" class="relative mt-3 line-clamp-3 px-4 text-sm font-bold leading-snug text-white sm:mt-5 sm:text-2xl">Regarder le dernier grand reportage</span>
+              <span class="relative mt-1 hidden text-sm text-slate-300 sm:block">Chaîne YouTube officielle • Capture Média</span>
+            </button>
+          </div>
+
+          <div class="mt-4 flex flex-col gap-3 text-sm sm:flex-row sm:flex-wrap sm:items-center">
+            <a href="https://www.youtube.com/@CAPTUREMEDIAA-d5b" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center justify-center gap-2 rounded-full bg-red-600 px-5 py-3 font-semibold text-white transition hover:bg-red-500">
+              <i class="fa-brands fa-youtube text-lg"></i> S'abonner sur YouTube
+            </a>
+            <span class="text-slate-500">Nouveaux reportages régulièrement</span>
+          </div>
+        </div>
+
+        <div class="order-1 lg:order-2 lg:col-span-2">
+          <h1 class="text-[2rem] font-black leading-[1.1] tracking-tight text-white sm:text-5xl">
+            L'info qui <span class="text-brand">éclaire</span>,<br />la jeunesse qui <span class="text-brand">agit</span>.
+          </h1>
+          <p class="mt-4 text-[15px] leading-relaxed text-slate-400 sm:mt-5 sm:text-lg">
+            <strong class="text-slate-200">Actu jeune et africaine.</strong> Capture Média documente le Togo et l'Afrique à travers des enquêtes, des reportages de terrain et des histoires qui comptent pour une génération consciente.
+          </p>
+
+          <div class="mt-6 rounded-2xl border border-green-500/30 bg-gradient-to-br from-green-500/10 to-slate-900 p-5 sm:mt-8 sm:p-6">
+            <div class="flex items-start gap-4">
+              <span class="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-500 text-2xl text-white">
+                <i class="fa-brands fa-whatsapp"></i>
+              </span>
+              <div>
+                <h3 class="text-lg font-bold text-white">Rejoignez la communauté</h3>
+                <p class="mt-1 text-sm text-slate-400">Recevez nos enquêtes et alertes en premier, directement sur le Canal WhatsApp officiel.</p>
+              </div>
+            </div>
+            <a href="https://www.whatsapp.com/channel/0029VbCO0avGzzKJohCfbw0F" target="_blank" rel="noopener noreferrer"
+               class="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-green-500 px-5 py-3 font-bold text-white transition hover:bg-green-400">
+              Rejoindre le Canal <i class="fa-solid fa-arrow-right text-sm"></i>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ PUBLICATIONS ============ -->
+    <section id="publications" class="scroll-mt-14 border-t border-slate-800 bg-slate-900/50 py-12 sm:py-16 lg:py-24">
+      <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+
+        <div class="flex flex-col gap-6 md:flex-row md:items-end md:justify-between">
+          <div>
+            <p class="text-sm font-bold uppercase tracking-widest text-brand">Nos contenus</p>
+            <h2 class="mt-2 text-2xl font-black text-white sm:text-4xl">Dernières publications</h2>
+          </div>
+          <div class="filters" role="tablist" aria-label="Filtrer par catégorie">
+            <button data-filter="all" class="filter-btn rounded-full border border-brand bg-brand px-5 py-2 text-sm font-semibold text-slate-950 transition">Tous</button>
+            <button data-filter="enquetes" class="filter-btn rounded-full border border-slate-700 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-brand hover:text-brand">Enquêtes</button>
+            <button data-filter="societe" class="filter-btn rounded-full border border-slate-700 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-brand hover:text-brand">Société</button>
+            <button data-filter="jeunesse" class="filter-btn rounded-full border border-slate-700 px-5 py-2 text-sm font-semibold text-slate-300 transition hover:border-brand hover:text-brand">Jeunesse &amp; Culture</button>
+          </div>
+        </div>
+
+        <!-- Les cartes sont générées depuis videos.js -->
+        <div id="grid" class="mt-8 grid gap-5 sm:mt-10 sm:grid-cols-2 sm:gap-6 lg:grid-cols-3"></div>
+
+        <p id="emptyState" class="mt-10 hidden text-center text-slate-400">
+          Aucun reportage dans cette catégorie pour le moment.
+        </p>
+
+        <div class="mt-10 text-center sm:mt-12">
+          <a href="https://www.youtube.com/@CAPTUREMEDIAA-d5b" target="_blank" rel="noopener noreferrer"
+             class="inline-flex w-full items-center justify-center gap-2 sm:w-auto rounded-full border border-slate-700 px-6 py-3 font-semibold text-white transition hover:border-red-500 hover:text-red-400">
+            <i class="fa-brands fa-youtube text-red-500"></i> Voir toutes les vidéos sur YouTube
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ À PROPOS + FORMULAIRE ============ -->
+    <section id="apropos" class="scroll-mt-14 border-t border-slate-800 py-12 sm:py-16 lg:py-24">
+      <div class="mx-auto grid max-w-7xl gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:gap-16 lg:px-8">
+
+        <div class="reveal">
+          <p class="text-sm font-bold uppercase tracking-widest text-brand">À propos</p>
+          <h2 class="mt-2 text-2xl font-black text-white sm:text-4xl">Voir, comprendre, informer.</h2>
+          <p class="mt-5 leading-relaxed text-slate-400">
+            Capture Média est un média vidéo et d'investigation togolais. Notre mission : produire un journalisme d'investigation rigoureux et une information de terrain accessible, pour offrir à la jeunesse africaine les clés de lecture de son époque.
+          </p>
+          <p class="mt-4 leading-relaxed text-slate-400">
+            Nous allons là où l'actualité se fait, nous recoupons nos sources et nous donnons la parole à celles et ceux qui vivent les réalités que nous racontons.
+          </p>
+
+          <ul class="mt-8 space-y-4">
+            <li class="flex gap-4">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"><i class="fa-solid fa-magnifying-glass"></i></span>
+              <div><h4 class="font-bold text-white">Investigation</h4><p class="text-sm text-slate-400">Enquêtes approfondies, vérification des faits et recoupement des sources.</p></div>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"><i class="fa-solid fa-video"></i></span>
+              <div><h4 class="font-bold text-white">Information de terrain</h4><p class="text-sm text-slate-400">Reportages vidéo tournés au plus près des événements, au Togo et en Afrique.</p></div>
+            </li>
+            <li class="flex gap-4">
+              <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"><i class="fa-solid fa-users"></i></span>
+              <div><h4 class="font-bold text-white">Une génération consciente</h4><p class="text-sm text-slate-400">Un contenu pensé pour et avec la jeunesse africaine.</p></div>
+            </li>
+          </ul>
+        </div>
+
+        <div class="reveal rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-xl sm:p-8">
+          <h3 class="text-2xl font-black text-white">Proposer un sujet</h3>
+          <p class="mt-2 text-sm text-slate-400">Une alerte, une injustice, une histoire à raconter ? Écrivez-nous. Vous pouvez utiliser un pseudonyme.</p>
+
+          <form id="topicForm" class="mt-6 space-y-5">
+            <div>
+              <label for="nom" class="mb-2 block text-sm font-semibold text-slate-300">Nom / Pseudonyme</label>
+              <input id="nom" name="nom" type="text" required autocomplete="nickname" enterkeyhint="next" placeholder="Ex : Citoyen_228"
+                     class="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-base text-white placeholder-slate-600 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30" />
+            </div>
+            <div>
+              <label for="message" class="mb-2 block text-sm font-semibold text-slate-300">Message / Alerte</label>
+              <textarea id="message" name="message" rows="4" required enterkeyhint="send" placeholder="Décrivez le sujet ou l'alerte en quelques lignes…"
+                        class="w-full resize-none rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-base text-white placeholder-slate-600 outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/30"></textarea>
+            </div>
+            <button type="submit"
+                    class="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-red-600/20 transition hover:bg-red-500 active:scale-[.99]">
+              <i class="fa-solid fa-paper-plane"></i> Envoyer l'alerte
+            </button>
+            <p class="text-center text-xs text-slate-500">Le message s'ouvre dans WhatsApp, prêt à être envoyé à l'équipe.</p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ============ FOOTER ============ -->
+  <footer class="border-t border-slate-800 bg-slate-900">
+    <div class="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <div class="grid gap-10 md:grid-cols-3">
+        <div>
+          <div class="flex items-center gap-3">
+            <img src="logo.png" alt="" class="h-10 w-10 rounded-lg" />
+            <p class="text-xl font-extrabold text-white">Capture <span class="text-brand">Média</span></p>
+          </div>
+          <p class="mt-3 text-sm text-slate-400">Média d'infos pour une génération consciente 🔆</p>
+          <p class="mt-2 text-sm text-slate-500">Actu jeune et africaine • Togo</p>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-white">Navigation</h4>
+          <ul class="mt-3 space-y-3 text-sm text-slate-400">
+            <li><a href="#accueil" class="hover:text-brand">Accueil</a></li>
+            <li><a href="#publications" class="hover:text-brand">Publications</a></li>
+            <li><a href="#apropos" class="hover:text-brand">À propos</a></li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="font-bold text-white">Suivez-nous</h4>
+          <div class="mt-3 flex flex-col gap-3 text-sm">
+            <a href="https://www.whatsapp.com/channel/0029VbCO0avGzzKJohCfbw0F" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-3 text-slate-300 transition hover:text-green-400">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-green-400"><i class="fa-brands fa-whatsapp text-lg"></i></span>
+              Canal WhatsApp officiel
+            </a>
+            <a href="https://www.youtube.com/@CAPTUREMEDIAA-d5b" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-3 text-slate-300 transition hover:text-red-400">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-red-500"><i class="fa-brands fa-youtube text-lg"></i></span>
+              Chaîne YouTube
+            </a>
+            <a href="https://wa.me/22891075151" target="_blank" rel="noopener noreferrer"
+               class="inline-flex items-center gap-3 text-slate-300 transition hover:text-green-400">
+              <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-800 text-green-400"><i class="fa-solid fa-phone"></i></span>
+              +228 91 07 51 51
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-center text-sm text-slate-500 md:flex-row md:text-left">
+        <p>© 2026 Capture Média. Tous droits réservés.</p>
+        <p>Conçu avec passion par <span class="font-semibold text-brand">Enoch Montcho</span></p>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ============ LECTEUR MODAL ============ -->
+  <div id="videoModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/95 p-3 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-label="Lecteur vidéo">
+    <button id="modalClose" aria-label="Fermer" class="absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-10 flex h-11 w-11 items-center justify-center rounded-full bg-slate-800 text-white transition hover:bg-red-600">
+      <i class="fa-solid fa-xmark text-lg"></i>
+    </button>
+    <div id="modalFrame" class="relative mt-10 aspect-video w-full max-w-5xl overflow-hidden rounded-xl bg-black shadow-2xl sm:mt-0 sm:rounded-2xl"></div>
+  </div>
+
+  <!-- ============ BOUTON WHATSAPP FLOTTANT ============ -->
+  <a href="https://wa.me/22891075151" target="_blank" rel="noopener noreferrer" aria-label="Contacter Capture Média sur WhatsApp"
+     class="wa-pulse wa-float fixed z-50 flex h-14 w-14 items-center justify-center rounded-full bg-green-500 text-3xl text-white shadow-2xl transition duration-300 hover:rotate-6 hover:scale-110 hover:bg-green-400 sm:h-16 sm:w-16">
+    <i class="fa-brands fa-whatsapp"></i>
+  </a>
+
+  <script src="videos.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
