@@ -23,6 +23,10 @@ window.CAPTURE_CONFIG = {
   whatsappChannel: "https://www.whatsapp.com/channel/0029VbCO0avGzzKJohCfbw0F",
   whatsappNumber: "22891075151",
 
+  // Lien de téléchargement de l'application Android (APK publié sur GitHub Releases).
+  // Ce lien pointe toujours vers la DERNIÈRE version construite.
+  apkUrl: "https://github.com/riochimorasame/ACTUMEDIA/releases/latest/download/CaptureMedia.apk",
+
   // --- Vidéo à la une -------------------------------------------------
   featured: {
     url: "https://www.youtube.com/watch?v=YYxBAZuAO48",

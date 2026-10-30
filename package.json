@@ -1,0 +1,11 @@
+{
+  "name": "capture-media-app",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Application Android de Capture Média (enveloppe du site)",
+  "dependencies": {
+    "@capacitor/android": "^6.1.2",
+    "@capacitor/cli": "^6.1.2",
+    "@capacitor/core": "^6.1.2"
+  }
+}

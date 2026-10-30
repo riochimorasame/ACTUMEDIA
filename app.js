@@ -477,6 +477,16 @@
   openFromHash();
   window.addEventListener("hashchange", openFromHash);
 
+  /* ---------- Bouton « Télécharger l'app » (Android uniquement) ---------- */
+  const isAndroid = /Android/i.test(navigator.userAgent);
+  const inApp = /CaptureMediaApp/.test(navigator.userAgent) ||
+    (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  const apkOn = !!(CFG.apkUrl && isAndroid && !inApp);
+  if (apkOn) {
+    document.getElementById("apkBtn").href = CFG.apkUrl;
+    document.getElementById("apkCard").classList.remove("hidden");
+  }
+
   /* ---------- Appli installable (PWA) ---------- */
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
@@ -485,7 +495,7 @@
   const installBtn = document.getElementById("installBtn");
   window.addEventListener("beforeinstallprompt", e => {
     e.preventDefault();
-    if (store.get("cm_install_dismissed", false)) return;
+    if (store.get("cm_install_dismissed", false) || apkOn) return; // sur Android, on propose l'APK à la place
     deferredInstall = e;
     installBtn.classList.remove("hidden"); installBtn.classList.add("flex");
   });

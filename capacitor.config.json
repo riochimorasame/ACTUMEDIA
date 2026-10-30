@@ -1,0 +1,14 @@
+{
+  "appId": "com.capturemedia.app",
+  "appName": "Capture Média",
+  "webDir": "www",
+  "server": {
+    "url": "https://riochimorasame.github.io/ACTUMEDIA/",
+    "androidScheme": "https",
+    "cleartext": false
+  },
+  "android": {
+    "appendUserAgent": "CaptureMediaApp",
+    "allowMixedContent": false
+  }
+}
