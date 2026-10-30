@@ -6,7 +6,8 @@
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <link rel="apple-touch-icon" href="assets/favicon.png" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="assets/icon-192.png" />
   <title>Capture Média — Actu jeune et africaine</title>
   <meta name="description" content="Capture Média : média d'infos pour une génération consciente. Enquêtes, reportages et actualité jeune et africaine depuis le Togo." />
   <meta name="theme-color" content="#020617" />
@@ -18,17 +19,7 @@
   <meta property="og:image" content="assets/og-image.png" />
   <link rel="icon" type="image/png" href="assets/favicon.png" />
 
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: { brand: { DEFAULT: '#FFE000', dark: '#E6C900' } },
-          fontFamily: { sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'] }
-        }
-      }
-    }
-  </script>
+  <link rel="stylesheet" href="styles.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
@@ -54,12 +45,53 @@
       .card:hover { transform: none !important; }
     }
     .card:active { transform: scale(.985); }
-    /* Lecteur plein écran en paysage */
-    #modalFrame { max-height: calc(100dvh - 5.5rem); }
-    @media (orientation: landscape) and (max-height: 500px) {
-      #videoModal { padding: .5rem; }
-      #modalFrame { max-height: 100dvh; height: calc(100dvh - 1rem); width: auto; aspect-ratio: 16/9; }
-    }
+    /* ===== Lecteur façon TikTok (plein écran, défilement vertical) ===== */
+    #videoModal { position: fixed; inset: 0; z-index: 60; background: #000; display: none; }
+    #videoModal.open { display: block; }
+    #feed { height: 100dvh; overflow-y: scroll; scroll-snap-type: y mandatory; overscroll-behavior: contain; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+    #feed::-webkit-scrollbar { display: none; }
+    .slide { position: relative; height: 100dvh; scroll-snap-align: start; scroll-snap-stop: always; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #000; }
+    .slide-bg { position: absolute; inset: -30px; background-size: cover; background-position: center; filter: blur(28px) brightness(.45) saturate(1.2); transform: scale(1.1); }
+    .stage { position: relative; width: min(100vw, calc((100dvh - 14rem) * 16 / 9)); aspect-ratio: 16/9; background: #000; box-shadow: 0 20px 60px rgba(0,0,0,.6); }
+    @media (min-width: 768px) { .stage { width: min(78vw, calc((100dvh - 10rem) * 16 / 9)); border-radius: 1rem; overflow: hidden; } }
+    @media (orientation: landscape) and (max-height: 500px) { .stage { width: min(100vw, calc(100dvh * 16 / 9)); border-radius: 0; } }
+    .stage .pl, .stage .tap, .stage iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+    .stage .tap { z-index: 2; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+    .stage .flash, .stage .heart { position: absolute; left: 50%; top: 50%; z-index: 3; pointer-events: none; opacity: 0; transform: translate(-50%,-50%) scale(.6); color: #fff; }
+    .stage .flash { width: 4.5rem; height: 4.5rem; border-radius: 9999px; background: rgba(0,0,0,.55); display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
+    .stage .heart { font-size: 5rem; color: #ef4444; filter: drop-shadow(0 4px 12px rgba(0,0,0,.5)); }
+    .stage .flash.go { animation: pop .6s ease-out; } .stage .heart.go { animation: pop .8s ease-out; }
+    @keyframes pop { 0% { opacity: 0; transform: translate(-50%,-50%) scale(.6); } 25% { opacity: 1; transform: translate(-50%,-50%) scale(1.1); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.3); } }
+    .stage .bar { position: absolute; left: 0; right: 0; bottom: 0; height: 22px; z-index: 4; cursor: pointer; }
+    .stage .bar::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255,255,255,.3); }
+    .stage .bar i { position: absolute; left: 0; bottom: 0; height: 3px; width: 0; background: #FFE000; }
+    .rail .liked { color: #ef4444; }
+    .rail .nav-btn { display: none; } @media (min-width: 768px) { .rail .nav-btn { display: flex; } }
+    #installBtn { position: fixed; left: calc(1rem + env(safe-area-inset-left,0px)); bottom: calc(1.25rem + env(safe-area-inset-bottom,0px)); z-index: 50; }
+    .stage .poster { position: absolute; inset: 0; background-size: cover; background-position: center; display: flex; align-items: center; justify-content: center; }
+    .slide-info { position: absolute; left: 0; right: 4.5rem; bottom: 0; padding: 1rem 1rem calc(1.25rem + env(safe-area-inset-bottom,0px)); background: linear-gradient(to top, rgba(0,0,0,.85), transparent); color: #fff; pointer-events: none; }
+    .rail { position: absolute; right: .75rem; bottom: calc(9rem + env(safe-area-inset-bottom,0px)); display: flex; flex-direction: column; gap: .9rem; z-index: 5; }
+    @media (min-width: 768px) { .rail { bottom: auto; top: 50%; transform: translateY(-50%); right: 1.25rem; } }
+    @media (orientation: landscape) and (max-height: 500px) { .rail { bottom: auto; top: 50%; transform: translateY(-50%); gap: .5rem; } .rail button, .rail a { width: 2.5rem; height: 2.5rem; } }
+    .rail button, .rail a, #modalClose { width: 3rem; height: 3rem; border-radius: 9999px; background: rgba(30,41,59,.75); color: #fff; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(6px); transition: background .2s, transform .15s; }
+    .rail button:hover, .rail a:hover, #modalClose:hover { background: #dc2626; }
+    .rail button:active, .rail a:active { transform: scale(.92); }
+    #modalClose { position: fixed; right: .75rem; top: calc(.75rem + env(safe-area-inset-top,0px)); z-index: 70; }
+    /* Guide de geste : doigt qui glisse vers le haut */
+    .swipe-guide { position: fixed; inset: 0; z-index: 65; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1rem; background: rgba(0,0,0,.45); pointer-events: none; opacity: 0; animation: guideIn .35s ease .5s forwards; }
+    .swipe-guide.out { animation: guideOut .3s ease forwards; }
+    @keyframes guideIn { to { opacity: 1; } } @keyframes guideOut { from { opacity: 1; } to { opacity: 0; } }
+    .swipe-track { position: relative; width: 4rem; height: 9rem; }
+    .swipe-chev { position: absolute; left: 50%; width: 1.1rem; height: 1.1rem; margin-left: -.55rem; border-left: 3px solid rgba(255,255,255,.85); border-top: 3px solid rgba(255,255,255,.85); transform: rotate(45deg); opacity: 0; animation: chev 1.8s ease-in-out infinite; }
+    .swipe-chev:nth-child(1) { top: 0; animation-delay: .5s; } .swipe-chev:nth-child(2) { top: 1.1rem; animation-delay: .25s; }
+    @keyframes chev { 0%,100% { opacity: 0; } 50% { opacity: 1; } }
+    .swipe-finger { position: absolute; left: 50%; bottom: 0; width: 3rem; height: 3rem; margin-left: -1.5rem; border-radius: 9999px; background: rgba(255,255,255,.92); box-shadow: 0 0 0 .6rem rgba(255,255,255,.28); animation: swipeUp 1.8s cubic-bezier(.4,0,.2,1) infinite; }
+    @keyframes swipeUp { 0% { transform: translateY(0) scale(1); opacity: 0; } 12% { opacity: 1; transform: translateY(0) scale(.9); } 70% { transform: translateY(-5.2rem) scale(.9); opacity: 1; } 100% { transform: translateY(-6rem) scale(.9); opacity: 0; } }
+    .swipe-text { color: #fff; font-weight: 700; font-size: 1.05rem; text-align: center; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+    .swipe-text small { display: block; margin-top: .2rem; font-weight: 500; font-size: .8rem; opacity: .8; }
+    @media (prefers-reduced-motion: reduce) { .swipe-finger, .swipe-chev { animation: none; opacity: 1; } .swipe-finger { transform: translateY(-3rem); } }
+    #feedToast { position: fixed; left: 50%; top: 4.5rem; transform: translateX(-50%); z-index: 70; background: rgba(0,0,0,.75); color: #fff; padding: .45rem .9rem; border-radius: 9999px; font-size: .8rem; opacity: 0; transition: opacity .2s; pointer-events: none; }
+    #feedToast.show { opacity: 1; }
     @keyframes pulse-ring {
       0%   { box-shadow: 0 0 0 0 rgba(37, 211, 102, .6); }
       70%  { box-shadow: 0 0 0 18px rgba(37, 211, 102, 0); }
@@ -280,7 +312,7 @@
                     class="flex w-full items-center justify-center gap-2 rounded-xl bg-red-600 px-6 py-3.5 font-bold text-white shadow-lg shadow-red-600/20 transition hover:bg-red-500 active:scale-[.99]">
               <i class="fa-solid fa-paper-plane"></i> Envoyer l'alerte
             </button>
-            <p class="text-center text-xs text-slate-500">Le message s'ouvre dans WhatsApp, prêt à être envoyé à l'équipe.</p>
+            <p class="text-center text-xs text-slate-500">Le message s'ouvre dans WhatsApp, prêt à être envoyé à l'équipe. En l'envoyant, vous acceptez le traitement de vos données décrit dans notre <a href="politique-de-confidentialite.html" class="underline hover:text-brand">politique de confidentialité</a>.</p>
           </form>
         </div>
       </div>
@@ -331,20 +363,30 @@
         </div>
       </div>
 
-      <div class="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-center text-sm text-slate-500 md:flex-row md:text-left">
+      <div class="mt-10 flex flex-col items-center justify-between gap-3 border-t border-slate-800 pt-6 text-center text-sm text-slate-500 md:flex-row md:flex-wrap md:text-left">
         <p>© 2026 Capture Média. Tous droits réservés.</p>
+        <ul class="flex flex-wrap items-center justify-center gap-x-5 gap-y-2">
+          <li><a href="mentions-legales.html" class="hover:text-brand">Mentions légales</a></li>
+          <li><a href="politique-de-confidentialite.html" class="hover:text-brand">Confidentialité</a></li>
+          <li><a href="politique-cookies.html" class="hover:text-brand">Cookies</a></li>
+          <li><a href="conditions-utilisation.html" class="hover:text-brand">Conditions d'utilisation</a></li>
+        </ul>
         <p>Conçu avec passion par <span class="font-semibold text-brand">Enoch Montcho</span></p>
       </div>
     </div>
   </footer>
 
   <!-- ============ LECTEUR MODAL ============ -->
-  <div id="videoModal" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/95 p-3 backdrop-blur-sm sm:p-4" role="dialog" aria-modal="true" aria-label="Lecteur vidéo">
-    <button id="modalClose" aria-label="Fermer" class="absolute right-3 top-[calc(0.75rem+env(safe-area-inset-top,0px))] z-10 flex h-11 w-11 items-center justify-center rounded-full bg-slate-800 text-white transition hover:bg-red-600">
-      <i class="fa-solid fa-xmark text-lg"></i>
-    </button>
-    <div id="modalFrame" class="relative mt-10 aspect-video w-full max-w-5xl overflow-hidden rounded-xl bg-black shadow-2xl sm:mt-0 sm:rounded-2xl"></div>
+  <div id="videoModal" role="dialog" aria-modal="true" aria-label="Lecteur vidéo">
+    <button id="modalClose" type="button" aria-label="Fermer"><i class="fa-solid fa-xmark text-lg"></i></button>
+    <div id="feedToast" role="status"></div>
+    <div id="feed"></div>
   </div>
+
+  <!-- Installer comme une appli (apparaît seulement si le navigateur le propose) -->
+  <button id="installBtn" type="button" class="hidden items-center gap-2 rounded-full bg-brand px-4 py-3 text-sm font-bold text-slate-950 shadow-2xl">
+    <i class="fa-solid fa-download"></i> Installer l'appli
+  </button>
 
   <!-- ============ BOUTON WHATSAPP FLOTTANT ============ -->
   <a href="https://wa.me/22891075151" target="_blank" rel="noopener noreferrer" aria-label="Contacter Capture Média sur WhatsApp"

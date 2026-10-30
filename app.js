@@ -18,26 +18,293 @@
   const thumb = (id) => `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
   const esc = (s) => String(s || "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-  /* ---------- Lecteur modal ---------- */
+  /* ---------- Stockage local (son, j'aime, reprise de lecture) ---------- */
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch (_) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (_) {} }
+  };
+  let muted = !!store.get("cm_muted", false);
+  let likes = new Set(store.get("cm_likes", []));
+  let positions = store.get("cm_pos", {});
+  const fmt = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+  const savePositions = () => {
+    const keys = Object.keys(positions);
+    if (keys.length > 40) keys.slice(0, keys.length - 40).forEach(k => delete positions[k]);
+    store.set("cm_pos", positions);
+  };
+
+  /* ---------- Lecteur façon TikTok ---------- */
   const modal = document.getElementById("videoModal");
-  const modalFrame = document.getElementById("modalFrame");
-  function openVideo(id) {
-    if (!id) { window.open(CFG.channelUrl, "_blank", "noopener"); return; }
-    modalFrame.innerHTML = `<iframe class="absolute inset-0 h-full w-full" src="https://www.youtube.com/embed/${id}?autoplay=1&rel=0"
-      title="Capture Média" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>`;
-    modal.classList.remove("hidden");
-    modal.classList.add("flex");
+  const feed = document.getElementById("feed");
+  const toast = document.getElementById("feedToast");
+  let items = [], current = -1, player = null, playerId = null, io2 = null, isOpen = false, ytReady = null;
+  let toastT, tickT, tapT, lastTap = 0, tick = 0;
+  const baseUrl = () => location.origin === "null" ? location.href.split("#")[0] : location.origin + location.pathname;
+  const shareUrl = id => `${baseUrl()}#video=${id}`;
+
+  function loadYT() {
+    if (ytReady) return ytReady;
+    ytReady = new Promise(res => {
+      if (window.YT && YT.Player) return res(true);
+      const prev = window.onYouTubeIframeAPIReady;
+      window.onYouTubeIframeAPIReady = () => { if (prev) prev(); res(true); };
+      const s = document.createElement("script");
+      s.src = "https://www.youtube.com/iframe_api";
+      s.onerror = () => res(false);
+      document.head.appendChild(s);
+      setTimeout(() => res(!!(window.YT && YT.Player)), 6000);
+    });
+    return ytReady;
+  }
+
+  function showToast(msg) {
+    toast.textContent = msg; toast.classList.add("show");
+    clearTimeout(toastT); toastT = setTimeout(() => toast.classList.remove("show"), 2200);
+  }
+
+  const icoSound = () => muted ? '<i class="fa-solid fa-volume-xmark"></i>' : '<i class="fa-solid fa-volume-high"></i>';
+  function refreshRail() {
+    feed.querySelectorAll('[data-act="mute"]').forEach(b => { b.innerHTML = icoSound(); b.setAttribute("aria-label", muted ? "Activer le son" : "Couper le son"); });
+    feed.querySelectorAll('[data-act="like"]').forEach(b => b.classList.toggle("liked", likes.has(items[+b.closest(".slide").dataset.i].id)));
+  }
+
+  function slideHTML(v, i) {
+    const c = CATS[v.category];
+    const th = thumb(v.id);
+    return `<section class="slide" data-i="${i}" aria-label="${esc(v.title)}">
+      <div class="slide-bg" style="background-image:url('${th}')"></div>
+      <div class="stage">
+        <div class="pl"><div class="poster" style="background-image:url('${th}')"><i class="fa-solid fa-circle-notch fa-spin text-3xl text-white/80"></i></div></div>
+        <div class="tap" data-tap></div>
+        <div class="flash"></div>
+        <div class="heart"><i class="fa-solid fa-heart"></i></div>
+        <div class="bar" data-bar aria-hidden="true"><i></i></div>
+      </div>
+      <div class="slide-info">
+        ${c ? `<span class="mb-2 inline-block rounded-full px-3 py-1 text-xs font-bold ${c.badge}">${c.label}</span>` : ""}
+        <h3 class="text-base font-bold leading-snug sm:text-lg">${esc(v.title)}</h3>
+        ${v.desc ? `<p class="mt-1 line-clamp-2 text-sm text-white/75">${esc(v.desc)}</p>` : ""}
+        <p class="mt-1 text-xs text-white/60">${i + 1} / ${items.length}${v.date ? " · " + esc(v.date) : ""} · Capture Média</p>
+      </div>
+      <div class="rail">
+        <button type="button" data-act="up" aria-label="Vidéo précédente" class="nav-btn"><i class="fa-solid fa-chevron-up"></i></button>
+        <button type="button" data-act="down" aria-label="Vidéo suivante" class="nav-btn"><i class="fa-solid fa-chevron-down"></i></button>
+        <button type="button" data-act="like" aria-label="J'aime"><i class="fa-solid fa-heart"></i></button>
+        <button type="button" data-act="mute"></button>
+        <button type="button" data-act="share" aria-label="Partager"><i class="fa-solid fa-share"></i></button>
+        <a href="https://www.youtube.com/watch?v=${v.id}" target="_blank" rel="noopener noreferrer" aria-label="Ouvrir sur YouTube"><i class="fa-brands fa-youtube"></i></a>
+      </div>
+    </section>`;
+  }
+
+  /* Position de lecture : sauvegardée pour reprendre là où on s'est arrêté */
+  function rememberPosition(save) {
+    if (!player || !player.getCurrentTime || !playerId) return;
+    try {
+      const id = playerId, t = player.getCurrentTime(), d = player.getDuration();
+      if (d > 0 && t > 5 && d - t > 8) { delete positions[id]; positions[id] = Math.floor(t); }
+      else if (d > 0 && d - t <= 8) delete positions[id];
+      if (save) savePositions();
+    } catch (_) {}
+  }
+
+  function updateBar() {
+    if (!player || !player.getCurrentTime || current < 0) return;
+    try {
+      const t = player.getCurrentTime(), d = player.getDuration();
+      const bar = feed.querySelector(`.slide[data-i="${current}"] .bar i`);
+      if (bar && d > 0) bar.style.width = Math.min(100, (t / d) * 100) + "%";
+      rememberPosition(++tick % 4 === 0);
+    } catch (_) {}
+  }
+
+  function destroyPlayer() {
+    clearInterval(tickT);
+    rememberPosition(true);
+    if (player) { try { player.destroy(); } catch (e) {} player = null; playerId = null; }
+    feed.querySelectorAll(".pl").forEach(pl => {
+      if (!pl.querySelector(".poster")) {
+        const v = items[+pl.closest(".slide").dataset.i];
+        pl.innerHTML = `<div class="poster" style="background-image:url('${thumb(v.id)}')"></div>`;
+      }
+    });
+    feed.querySelectorAll(".bar i").forEach(i => i.style.width = "0");
+  }
+
+  async function playSlide(i) {
+    if (i === current || i < 0 || i >= items.length) return;
+    current = i;
+    destroyPlayer();
+    const v = items[i], id = v.id;
+    // Garde l'adresse à jour : copier-coller du lien ouvre directement cette vidéo
+    try { history.replaceState({ feed: 1 }, "", `#video=${id}`); } catch (_) {}
+    if (items[i + 1]) new Image().src = thumb(items[i + 1].id); // précharge la miniature suivante (léger)
+    const pl = feed.querySelector(`.slide[data-i="${i}"] .pl`);
+    const ok = await loadYT();
+    if (current !== i) return; // l'utilisateur a déjà changé de vidéo
+    pl.innerHTML = '<div id="ytTarget"></div>';
+    const saved = positions[id];
+    if (ok) {
+      const vars = { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, controls: 0, disablekb: 1, iv_load_policy: 3 };
+      if (saved > 5) { vars.start = saved; showToast(`Reprise à ${fmt(saved)}`); }
+      playerId = id;
+      player = new YT.Player("ytTarget", {
+        videoId: id,
+        host: "https://www.youtube-nocookie.com",
+        playerVars: vars,
+        events: {
+          onReady: e => { try { if (muted) e.target.mute(); e.target.playVideo(); } catch (_) {} },
+          onAutoplayBlocked: () => { try { player.mute(); player.playVideo(); muted = true; refreshRail(); showToast("Touchez 🔇 pour activer le son"); } catch (_) {} },
+          onError: () => { showToast("Vidéo indisponible"); if (current < items.length - 1) setTimeout(() => { if (current === i) goTo(i + 1); }, 1200); },
+          onStateChange: e => {
+            if (e.data === 0) { // terminée -> vidéo suivante, comme TikTok
+              delete positions[id]; savePositions();
+              if (current < items.length - 1) goTo(current + 1);
+              else { try { e.target.seekTo(0); e.target.playVideo(); } catch (_) {} }
+            }
+          }
+        }
+      });
+      tickT = setInterval(updateBar, 500);
+    } else {
+      pl.innerHTML = `<iframe src="https://www.youtube-nocookie.com/embed/${id}?autoplay=1&playsinline=1&rel=0" title="Capture Média" allow="autoplay; encrypted-media; picture-in-picture; fullscreen" allowfullscreen></iframe>`;
+    }
+  }
+
+  function goTo(i, instant) {
+    i = Math.max(0, Math.min(items.length - 1, i));
+    const s = feed.querySelector(`.slide[data-i="${i}"]`);
+    if (s) s.scrollIntoView({ behavior: instant ? "auto" : "smooth", block: "start" });
+  }
+
+  function share(v) {
+    const url = shareUrl(v.id);
+    if (navigator.share) { navigator.share({ title: v.title, text: v.title, url }).catch(() => {}); return; }
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(() => showToast("Lien copié"), () => showToast(url));
+    else showToast(url);
+  }
+
+  function flash(slide, cls, html) {
+    const el = slide.querySelector("." + cls);
+    if (html) el.innerHTML = html;
+    el.classList.remove("go"); void el.offsetWidth; el.classList.add("go");
+  }
+  function toggleLike(v, slide, force) {
+    const was = likes.has(v.id);
+    if (force && was) { flash(slide, "heart"); return; } // double-tap sur une vidéo déjà aimée : juste l'animation
+    was ? likes.delete(v.id) : likes.add(v.id);
+    store.set("cm_likes", [...likes]);
+    if (!was) flash(slide, "heart");
+    refreshRail();
+  }
+  function togglePlay(slide) {
+    if (!player || !player.getPlayerState) return;
+    try {
+      if (player.getPlayerState() === 1) { player.pauseVideo(); flash(slide, "flash", '<i class="fa-solid fa-pause"></i>'); }
+      else { player.playVideo(); flash(slide, "flash", '<i class="fa-solid fa-play ml-1"></i>'); }
+    } catch (_) {}
+  }
+  function setMuted(m) {
+    muted = m; store.set("cm_muted", m);
+    try { m ? player.mute() : player.unMute(); } catch (_) {}
+    refreshRail();
+  }
+
+  function openFeed(list, start) {
+    items = list.filter(v => v.id);
+    if (!items.length) { window.open(CFG.channelUrl, "_blank", "noopener"); return; }
+    feed.innerHTML = items.map(slideHTML).join("");
+    refreshRail();
+    modal.classList.add("open"); isOpen = true;
     document.body.classList.add("overflow-hidden");
+    current = -1;
+    if (io2) io2.disconnect();
+    io2 = new IntersectionObserver(es => es.forEach(en => {
+      if (en.isIntersecting && en.intersectionRatio >= 0.6) playSlide(+en.target.dataset.i);
+    }), { root: feed, threshold: [0.6] });
+    feed.querySelectorAll(".slide").forEach(s => io2.observe(s));
+    history.pushState({ feed: 1 }, "");
+    goTo(start || 0, true);
+    if (!start) playSlide(0);
+    showGuide();
   }
-  function closeVideo() {
-    modal.classList.add("hidden");
-    modal.classList.remove("flex");
-    modalFrame.innerHTML = "";
+
+  /* ---------- Guide de geste (affiché tant que le visiteur n'a pas glissé) ---------- */
+  let guideEl = null, guideT, guideAt = 0;
+  function hideGuide(done) {
+    clearTimeout(guideT);
+    if (done) store.set("cm_swiped", true);
+    if (!guideEl) return;
+    const g = guideEl; guideEl = null;
+    g.classList.add("out"); setTimeout(() => g.remove(), 350);
+  }
+  function showGuide() {
+    if (items.length < 2 || store.get("cm_swiped", false)) return;
+    const n = store.get("cm_guide_n", 0);
+    if (n >= 4) return; // jamais plus de 4 ouvertures
+    store.set("cm_guide_n", n + 1);
+    const touch = window.matchMedia("(hover: none)").matches;
+    const g = document.createElement("div");
+    g.className = "swipe-guide"; g.setAttribute("aria-hidden", "true");
+    g.innerHTML = `<div class="swipe-track"><span class="swipe-chev"></span><span class="swipe-chev"></span><span class="swipe-finger"></span></div>
+      <p class="swipe-text">${touch ? "Glissez vers le haut" : "Molette ou flèches ↑ ↓"}<small>pour voir la vidéo suivante</small></p>`;
+    modal.appendChild(g); guideEl = g; guideAt = Date.now();
+    guideT = setTimeout(() => hideGuide(false), 6500);
+  }
+  feed.addEventListener("scroll", () => { if (guideEl && Date.now() - guideAt > 900 && feed.scrollTop > 40) hideGuide(true); }, { passive: true });
+
+  function closeFeed(fromPop) {
+    if (!isOpen) return;
+    isOpen = false;
+    if (io2) { io2.disconnect(); io2 = null; }
+    destroyPlayer();
+    clearTimeout(tapT);
+    hideGuide(false);
+    feed.innerHTML = ""; current = -1;
+    modal.classList.remove("open");
     document.body.classList.remove("overflow-hidden");
+    if (!fromPop && history.state && history.state.feed) history.back();
   }
-  document.getElementById("modalClose").addEventListener("click", closeVideo);
-  modal.addEventListener("click", e => { if (e.target === modal) closeVideo(); });
-  document.addEventListener("keydown", e => { if (e.key === "Escape") closeVideo(); });
+
+  feed.addEventListener("click", e => {
+    const slideEl = e.target.closest(".slide");
+    if (!slideEl) return;
+    const v = items[+slideEl.dataset.i];
+    const bar = e.target.closest("[data-bar]");
+    if (bar) { // toucher la barre de progression = avancer / reculer
+      if (player && player.getDuration && +slideEl.dataset.i === current) {
+        const r = bar.getBoundingClientRect();
+        try { player.seekTo(Math.max(0, Math.min(1, (e.clientX - r.left) / r.width)) * player.getDuration(), true); updateBar(); } catch (_) {}
+      }
+      return;
+    }
+    if (e.target.closest("[data-tap]")) {
+      const now = Date.now();
+      if (now - lastTap < 300) { clearTimeout(tapT); lastTap = 0; toggleLike(v, slideEl, true); }
+      else { lastTap = now; tapT = setTimeout(() => togglePlay(slideEl), 260); }
+      return;
+    }
+    const b = e.target.closest("[data-act]");
+    if (!b) return;
+    const act = b.dataset.act;
+    if (act === "up") goTo(current - 1);
+    else if (act === "down") goTo(current + 1);
+    else if (act === "share") share(v);
+    else if (act === "like") toggleLike(v, slideEl);
+    else if (act === "mute") setMuted(!muted);
+  });
+  document.getElementById("modalClose").addEventListener("click", () => closeFeed());
+  window.addEventListener("popstate", () => closeFeed(true));
+  document.addEventListener("keydown", e => {
+    if (!isOpen) return;
+    if (e.key === "Escape") closeFeed();
+    else if (e.key === "ArrowDown" || e.key === "j") { e.preventDefault(); goTo(current + 1); }
+    else if (e.key === "ArrowUp" || e.key === "k") { e.preventDefault(); goTo(current - 1); }
+    else if (e.key === " " || e.key === "k") { e.preventDefault(); togglePlay(feed.querySelector(`.slide[data-i="${current}"]`)); }
+    else if (e.key === "m") setMuted(!muted);
+  });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) rememberPosition(true); });
+  window.addEventListener("pagehide", () => rememberPosition(true));
 
   /* ---------- Hero : vidéo à la une ---------- */
   const heroId = ytId(CFG.featured && CFG.featured.url);
@@ -49,7 +316,10 @@
     img.classList.remove("hidden");
     document.getElementById("heroTitle").textContent = (CFG.featured.title || "Regarder le grand reportage");
   }
-  heroPoster.addEventListener("click", () => openVideo(heroId));
+  heroPoster.addEventListener("click", () => {
+    if (!heroId) { window.open(CFG.channelUrl, "_blank", "noopener"); return; }
+    openFeed(fullList(), 0);
+  });
 
   /* ---------- Grille des reportages ---------- */
   const grid = document.getElementById("grid");
@@ -124,7 +394,12 @@
       img.addEventListener("load", () => { if (img.naturalWidth <= 120) bad(); });
       if (img.complete && img.naturalWidth) { if (img.naturalWidth <= 120) bad(); }
     });
-    grid.querySelectorAll("button.card").forEach(b => b.addEventListener("click", () => openVideo(b.dataset.id)));
+    grid.querySelectorAll("button.card").forEach(b => b.addEventListener("click", () => {
+      // Le fil suit le filtre actif : on ne garde que les cartes visibles
+      const ids = [...grid.querySelectorAll("button.card:not(.hidden)")].map(x => x.dataset.id);
+      const feedList = ids.map(id => list.find(v => v.id === id));
+      openFeed(feedList, Math.max(0, ids.indexOf(b.dataset.id)));
+    }));
   } else {
     grid.innerHTML =
       placeholder("enquetes", "Enquêtes de terrain", "Investigations, preuves et témoignages.") +
@@ -183,4 +458,43 @@
     if (en.isIntersecting) { en.target.classList.add("reveal-in"); io.unobserve(en.target); }
   }), { threshold: 0.1 });
   document.querySelectorAll(".reveal").forEach(el => io.observe(el));
+
+  /* ---------- Liste complète (à la une + reportages) et lien direct #video=ID ---------- */
+  function fullList() {
+    const out = [];
+    if (heroId) out.push({ id: heroId, title: (CFG.featured && CFG.featured.title) || "À la une", category: "" });
+    list.forEach(v => { if (v.id && v.id !== heroId) out.push(v); });
+    return out;
+  }
+  function openFromHash() {
+    const m = location.hash.match(/^#video=([\w-]{11})$/);
+    if (!m || isOpen) return;
+    let all = fullList(), idx = all.findIndex(v => v.id === m[1]);
+    if (idx < 0) { all = [{ id: m[1], title: "Capture Média", category: "" }, ...all]; idx = 0; }
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (_) {}
+    openFeed(all, idx);
+  }
+  openFromHash();
+  window.addEventListener("hashchange", openFromHash);
+
+  /* ---------- Appli installable (PWA) ---------- */
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
+    window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+  }
+  let deferredInstall = null;
+  const installBtn = document.getElementById("installBtn");
+  window.addEventListener("beforeinstallprompt", e => {
+    e.preventDefault();
+    if (store.get("cm_install_dismissed", false)) return;
+    deferredInstall = e;
+    installBtn.classList.remove("hidden"); installBtn.classList.add("flex");
+  });
+  installBtn.addEventListener("click", async () => {
+    if (!deferredInstall) return;
+    deferredInstall.prompt();
+    const { outcome } = await deferredInstall.userChoice;
+    if (outcome === "dismissed") store.set("cm_install_dismissed", true);
+    deferredInstall = null; installBtn.classList.add("hidden"); installBtn.classList.remove("flex");
+  });
+  window.addEventListener("appinstalled", () => installBtn.classList.add("hidden"));
 })();
