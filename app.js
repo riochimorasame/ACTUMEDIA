@@ -483,8 +483,8 @@
     (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
   const apkOn = !!(CFG.apkUrl && isAndroid && !inApp);
   if (apkOn) {
-    document.getElementById("apkBtn").href = CFG.apkUrl;
-    document.getElementById("apkCard").classList.remove("hidden");
+    document.querySelectorAll("[data-apk]").forEach(a => { a.href = CFG.apkUrl; a.classList.remove("hidden"); });
+    document.querySelectorAll("[data-apk-menu]").forEach(d => d.classList.remove("hidden"));
   }
 
   /* ---------- Appli installable (PWA) ---------- */
