@@ -487,6 +487,22 @@
     document.querySelectorAll("[data-apk-menu]").forEach(d => d.classList.remove("hidden"));
   }
 
+  /* ---------- iPhone / iPad : guide « Sur l'écran d'accueil » ---------- */
+  const ua = navigator.userAgent;
+  const isIPad = /iPad/.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const isIOS = /iPhone|iPod/.test(ua) || isIPad;
+  const iosStandalone = window.navigator.standalone === true || (window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+  if (isIOS && !iosStandalone) {
+    const sheet = document.getElementById("iosSheet");
+    document.querySelectorAll("[data-ios-open]").forEach(b => b.classList.remove("hidden"));
+    if (isIPad) { sheet.classList.add("ipad"); sheet.querySelector(".ios-where").textContent = "en haut à droite"; }
+    const openSheet = () => { sheet.classList.add("open"); };
+    const closeSheet = () => { sheet.classList.remove("open"); };
+    document.querySelectorAll("[data-ios-open]").forEach(b => b.addEventListener("click", () => { setMenu(false); openSheet(); }));
+    sheet.querySelectorAll("[data-ios-close]").forEach(b => b.addEventListener("click", closeSheet));
+    document.addEventListener("keydown", e => { if (e.key === "Escape") closeSheet(); });
+  }
+
   /* ---------- Appli installable (PWA) ---------- */
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost")) {
     window.addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
